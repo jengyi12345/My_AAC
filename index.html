@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AAC 溝通輔具系統</title>
+    <style>
+        :root {
+            --primary-bg: #fff0f5; 
+            --panel-bg: #ffe4e1; 
+            --btn-bg: #ffb6c1; 
+            --btn-hover: #ff69b4; 
+            --text-color: #4a0e17;
+            --border-color: #ffc0cb; 
+        }
+        
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            background-color: var(--primary-bg);
+            color: var(--text-color);
+            margin: 0;
+            padding: 2vmin;
+            transition: background-color 0.3s ease;
+            box-sizing: border-box;
+            height: 100vh; 
+            overflow: hidden; 
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap; 
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid var(--border-color);
+            gap: 10px;
+            flex-shrink: 0; 
+        }
+        
+        h2 { margin: 0; font-size: clamp(18px, 4vw, 24px); }
+
+        button {
+            background-color: var(--btn-bg);
+            border: none;
+            border-radius: 8px;
+            padding: 8px 15px;
+            font-size: clamp(14px, 2.5vw, 16px);
+            font-weight: bold;
+            color: var(--text-color);
+            cursor: pointer;
+            transition: 0.3s;
+            margin-bottom: 5px;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation; 
+        }
+        button:hover { background-color: var(--btn-hover); color: white; }
+
+        #frontend-controls { flex-shrink: 0; }
+        
+        .memory-bar {
+            background-color: white;
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            height: 7vh; 
+            min-height: 55px;
+            display: flex;
+            align-items: center;
+            padding: 5px 10px;
+            margin-bottom: 10px;
+            gap: 10px;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+        .memory-item {
+            height: 100%;
+            aspect-ratio: 1/1; 
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            object-fit: cover;
+        }
+        .memory-item-text {
+            height: 100%;
+            aspect-ratio: 1/1;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #fff;
+            font-weight: bold;
+            font-size: clamp(12px, 2.5vw, 16px);
+        }
+
+        .grid-container {
+            flex-grow: 1; 
+            display: grid;
+            gap: 1.5vmin;
+            width: 100%;
+            min-height: 0; 
+            height: 100%;
+        }
+        
+        .cell {
+            background-color: white;
+            border: 3px solid var(--border-color);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%; 
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.2s;
+            box-sizing: border-box;
+            padding: 8px; /* 增加留白，讓大圖不會撞到邊框 */
+
+            min-height: 0; 
+            overflow: hidden; 
+
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            touch-action: manipulation; 
+        }
+        .cell:active { transform: scale(0.95); }
+        .cell:hover { box-shadow: 0 4px 8px rgba(255, 105, 180, 0.2); }
+        
+        .cell img {
+            width: 100%;
+            height: 100%;       /* 初始分配所有高度 */
+            min-height: 0;      /* 允許圖片因應排版需求縮小 (Flexbox 重要屬性) */
+            flex-grow: 1;       /* 無文字時，自動擴張填滿所有空間 */
+            flex-shrink: 1;     /* 有文字時，自動讓出空間 */
+            object-fit: contain; /* 保持圖片比例不變形 */
+            pointer-events: none; 
+        }
+        .cell span { 
+            /* 將文字縮小，提升圖片空間 */
+            font-size: clamp(10px, 1.8vmin, 16px); 
+            font-weight: bold; 
+            text-align: center;
+            line-height: 1.2;
+            word-break: break-word; 
+            flex-shrink: 0;     /* 防止文字在螢幕過小被壓縮至消失 */
+            margin-top: 4px;    /* 稍微拉開與上方圖片的距離 */
+        }
+        
+        /* 後台控制面板 */
+        .edit-panel {
+            background-color: var(--panel-bg);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            overflow-y: auto;
+            max-height: calc(100vh - 100px); 
+        }
+        .edit-panel h3 { font-size: 16px; margin-bottom: 10px; }
+        .edit-panel input[type="number"], .edit-panel select {
+            margin: 2px 5px; padding: 5px; border-radius: 4px; border: 1px solid var(--border-color);
+        }
+        input[type="color"] { border: 1px solid var(--border-color); border-radius: 4px; height: 30px; width: 50px; padding: 2px; vertical-align: middle; cursor: pointer; }
+        
+        .modal {
+            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: white; padding: 20px; border: 2px solid var(--border-color); border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 100;
+            width: 90%; max-width: 350px; 
+            box-sizing: border-box;
+        }
+        .modal input[type="text"], .modal select { width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box; }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 99; }
+        .note { font-size: 12px; color: #666; }
+
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h2>AAC 系統 <span id="current-page-label" style="font-size: clamp(12px, 2vw, 16px); color: #666; margin-left: 5px;">(目前: 首頁)</span></h2>
+        <div>
+            <button onclick="navigateHome()">回首頁</button>
+            <button onclick="toggleMode()" id="mode-btn">進入後台</button>
+        </div>
+    </div>
+
+    <div id="frontend-controls">
+        <div class="memory-bar" id="memory-bar"></div>
+        <button onclick="playMemory()">▶ 播放記憶</button>
+        <button onclick="clearMemory()">清除記憶</button>
+    </div>
+
+    <div class="edit-panel" id="backend-controls" style="display: none;">
+        <div style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px dashed #ffb6c1;">
+            <h3 style="margin-top: 0; color: #880E4F;">系統檔案存取</h3>
+            <button onclick="exportData()" style="background-color: #4CAF50; color: white;">💾 儲存設定</button>
+            <button onclick="document.getElementById('import-file').click()" style="background-color: #2196F3; color: white;">📂 開啟舊檔</button>
+            <input type="file" id="import-file" accept=".json" style="display: none;" onchange="importData(event)">
+        </div>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 15px;">
+            <div style="flex: 1; min-width: 200px;">
+                <h3 style="margin-top: 0;">頁面視覺管理</h3>
+                <label>目前頁面: <select id="page-select" onchange="changePage(this.value)"></select></label>
+                <button onclick="addNewPage()">新增子頁面</button>
+                <br><br>
+                <label>背景色: <input type="color" id="page-bg-color" value="#fff0f5"></label>
+                <button onclick="updatePageBgColor()" style="background-color: #9C27B0; color: white;">儲存顏色</button>
+            </div>
+            
+            <div style="flex: 1; min-width: 200px; border-left: 2px dashed #ffb6c1; padding-left: 15px;">
+                <h3 style="margin-top: 0;">方陣維度設定</h3>
+                <label>行數: <input type="number" id="rows-input" value="4" min="1" max="10" style="width: 50px;"></label>
+                <label>列數: <input type="number" id="cols-input" value="5" min="1" max="10" style="width: 50px;"></label>
+                <br><br>
+                <button onclick="updateGridSize()">更新尺寸</button>
+            </div>
+        </div>
+
+        <div style="border-top: 2px dashed #ffb6c1; padding-top: 10px;">
+            <button onclick="clearSystemData()" style="background-color: #ffb3b3;">重置全部資料</button>
+            <p style="font-size: 13px; color: #880E4F; font-weight: bold; margin-bottom: 0;">提示：點擊下方網格設定圖檔、音檔與跳頁動作。</p>
+        </div>
+    </div>
+
+    <div class="grid-container" id="grid-container"></div>
+
+    <div class="modal-overlay" id="modal-overlay" onclick="closeModal()"></div>
+    <div class="modal" id="edit-modal">
+        <h3 style="margin-top: 0;">編輯方格 <span id="cell-id-display"></span></h3>
+        <label>顯示文字 (可留白): <input type="text" id="cell-text"></label>
+        
+        <label>圖檔路徑 <span class="note">(.jpg, .png)</span>:
+            <div style="display: flex; gap: 5px; margin-top: 2px; margin-bottom: 5px;">
+                <input type="text" id="cell-img" placeholder="pic/apple.jpg" style="flex-grow: 1; margin: 0; width: auto;">
+                <button type="button" onclick="document.getElementById('img-picker').click()" style="margin: 0; padding: 5px 10px; font-size: 14px; background-color: #ddd; color: #333;">瀏覽</button>
+            </div>
+            <input type="file" id="img-picker" accept="image/jpeg, image/png" style="display: none;" onchange="handleFileSelect(this, 'cell-img', 'pic/')">
+        </label>
+
+        <label>語音路徑 <span class="note">(.mp3, .wav)</span>:
+            <div style="display: flex; gap: 5px; margin-top: 2px; margin-bottom: 5px;">
+                <input type="text" id="cell-audio" placeholder="wav/apple.mp3" style="flex-grow: 1; margin: 0; width: auto;">
+                <button type="button" onclick="document.getElementById('audio-picker').click()" style="margin: 0; padding: 5px 10px; font-size: 14px; background-color: #ddd; color: #333;">瀏覽</button>
+            </div>
+            <input type="file" id="audio-picker" accept="audio/mpeg, audio/wav" style="display: none;" onchange="handleFileSelect(this, 'cell-audio', 'wav/')">
+        </label>
+        
+        <label>點擊跳轉頁面: 
+            <select id="cell-target-page" style="margin-top: 5px; margin-bottom: 10px;">
+                <option value="">無跳轉動作</option>
+            </select>
+        </label>
+        <div style="text-align: right; margin-top: 10px;">
+            <button onclick="saveCell()" style="background-color: #880E4F; color: white;">儲存</button>
+            <button onclick="closeModal()">取消</button>
+        </div>
+    </div>
+
+<script>
+    const DEFAULT_DATA = { rows: 4, cols: 5, pages: { "首頁": {} }, pageSettings: { "首頁": { bgColor: "#fff0f5" } } };
+    let appData = JSON.parse(localStorage.getItem('aacSystemData')) || DEFAULT_DATA;
+    let currentMode = 'use'; 
+    let currentPage = "首頁";
+    let memory = []; 
+    let editingCellId = null;
+
+    function init() {
+        if (!appData.pageSettings) {
+            appData.pageSettings = {};
+            Object.keys(appData.pages).forEach(page => { appData.pageSettings[page] = { bgColor: "#fff0f5" }; });
+        }
+        if (!appData.pages["首頁"]) {
+            appData.pages["首頁"] = {}; appData.pageSettings["首頁"] = { bgColor: "#fff0f5" };
+        }
+        updatePageDropdown();
+        applyPageBgColor();
+        renderGrid();
+    }
+
+    function updatePageBgColor() {
+        const color = document.getElementById('page-bg-color').value;
+        if (!appData.pageSettings[currentPage]) appData.pageSettings[currentPage] = {};
+        appData.pageSettings[currentPage].bgColor = color;
+        saveData(); applyPageBgColor();
+    }
+
+    function applyPageBgColor() {
+        let color = "#fff0f5";
+        if (appData.pageSettings && appData.pageSettings[currentPage] && appData.pageSettings[currentPage].bgColor) {
+            color = appData.pageSettings[currentPage].bgColor;
+        }
+        document.body.style.backgroundColor = color;
+        const picker = document.getElementById('page-bg-color');
+        if (picker) picker.value = color;
+    }
+
+    function exportData() {
+        const dataStr = JSON.stringify(appData, null, 2);
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = "aac_config.json"; 
+        document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    }
+
+    function importData(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const importedData = JSON.parse(e.target.result);
+                if (importedData.rows && importedData.cols && importedData.pages) {
+                    appData = importedData; saveData(); currentPage = "首頁"; init();
+                    alert("設定檔匯入成功！");
+                } else { alert("檔案內容格式不正確，無法匯入。"); }
+            } catch (err) { alert("讀取失敗，請確保是有效的 JSON 設定檔。"); }
+            event.target.value = ''; 
+        };
+        reader.readAsText(file);
+    }
+
+    function toggleMode() {
+        currentMode = currentMode === 'use' ? 'edit' : 'use';
+        document.getElementById('mode-btn').innerText = currentMode === 'use' ? '進入後台' : '返回前台';
+        document.getElementById('frontend-controls').style.display = currentMode === 'use' ? 'block' : 'none';
+        document.getElementById('backend-controls').style.display = currentMode === 'use' ? 'none' : 'block';
+        if (currentMode === 'edit') {
+            document.getElementById('rows-input').value = appData.rows;
+            document.getElementById('cols-input').value = appData.cols;
+            applyPageBgColor();
+        }
+        renderGrid();
+    }
+
+    function navigateHome() { changePage("首頁"); }
+
+    function updateGridSize() {
+        appData.rows = parseInt(document.getElementById('rows-input').value) || 4;
+        appData.cols = parseInt(document.getElementById('cols-input').value) || 5;
+        saveData(); renderGrid();
+    }
+
+    function renderGrid() {
+        const container = document.getElementById('grid-container');
+        container.style.gridTemplateColumns = `repeat(${appData.cols}, 1fr)`;
+        container.style.gridTemplateRows = `repeat(${appData.rows}, 1fr)`;
+        container.innerHTML = '';
+        
+        document.getElementById('current-page-label').innerText = `(目前: ${currentPage})`;
+
+        for (let r = 0; r < appData.rows; r++) {
+            for (let c = 0; c < appData.cols; c++) {
+                const cellId = `${r}_${c}`;
+                const cellData = appData.pages[currentPage][cellId] || { text: "", img: "", audio: "", target: "" };
+                
+                const div = document.createElement('div');
+                div.className = 'cell';
+                
+                if (cellData.img) {
+                    const img = document.createElement('img');
+                    img.src = cellData.img;
+                    img.alt = cellData.text;
+                    img.onerror = () => { img.style.display = 'none'; }; 
+                    div.appendChild(img);
+                }
+                
+                if (cellData.text || currentMode === 'edit') {
+                    const span = document.createElement('span');
+                    span.innerText = cellData.text || (currentMode === 'edit' ? '+' : '');
+                    div.appendChild(span);
+                }
+
+                if (currentMode === 'edit') {
+                    div.style.borderStyle = 'dashed';
+                    div.style.backgroundColor = '#FFF';
+                    div.onclick = () => openEditModal(cellId);
+                } else {
+                    div.style.borderStyle = 'solid';
+                    if (cellData.text || cellData.img) {
+                        div.onclick = () => handleCellClick(cellData);
+                    } else {
+                        div.style.cursor = 'default';
+                        div.style.backgroundColor = 'transparent';
+                        div.style.borderStyle = 'none';
+                    }
+                }
+                container.appendChild(div);
+            }
+        }
+    }
+
+    function handleCellClick(cellData) {
+        if (cellData.audio) { playAudio(cellData.audio); }
+        memory.push(cellData); renderMemory();
+        if (cellData.target && appData.pages[cellData.target]) { changePage(cellData.target); }
+    }
+
+    function renderMemory() {
+        const bar = document.getElementById('memory-bar');
+        bar.innerHTML = '';
+        memory.forEach(item => {
+            if (item.img) {
+                const img = document.createElement('img'); img.src = item.img; img.className = 'memory-item'; bar.appendChild(img);
+            } else if (item.text) {
+                const div = document.createElement('div'); div.className = 'memory-item-text'; div.innerText = item.text; bar.appendChild(div);
+            }
+        });
+        bar.scrollLeft = bar.scrollWidth;
+    }
+
+    function clearMemory() { memory = []; renderMemory(); }
+
+    async function playMemory() {
+        for (let item of memory) {
+            if (item.audio) {
+                await new Promise(resolve => {
+                    const audio = new Audio(item.audio);
+                    audio.onended = resolve; audio.onerror = () => { setTimeout(resolve, 300); }; 
+                    audio.play().catch(() => { setTimeout(resolve, 300); });
+                });
+            }
+        }
+    }
+
+    function playAudio(src) {
+        const audio = new Audio(src);
+        audio.play().catch(e => console.warn('語音播放失敗:', e));
+    }
+
+    function openEditModal(cellId) {
+        editingCellId = cellId;
+        const cellData = appData.pages[currentPage][cellId] || { text: "", img: "", audio: "", target: "" };
+        document.getElementById('cell-id-display').innerText = `[${cellId}]`;
+        document.getElementById('cell-text').value = cellData.text;
+        document.getElementById('cell-img').value = cellData.img;
+        document.getElementById('cell-audio').value = cellData.audio;
+        
+        const targetSelect = document.getElementById('cell-target-page');
+        targetSelect.innerHTML = '<option value="">無跳轉動作</option>';
+        Object.keys(appData.pages).forEach(p => {
+            const opt = document.createElement('option'); opt.value = p; opt.innerText = p;
+            if (p === cellData.target) opt.selected = true; targetSelect.appendChild(opt);
+        });
+        document.getElementById('edit-modal').style.display = 'block';
+        document.getElementById('modal-overlay').style.display = 'block';
+    }
+
+    function handleFileSelect(inputElement, targetInputId, folderPrefix) {
+        if (inputElement.files && inputElement.files.length > 0) {
+            document.getElementById(targetInputId).value = folderPrefix + inputElement.files[0].name;
+        }
+        inputElement.value = '';
+    }
+
+    function saveCell() {
+        const text = document.getElementById('cell-text').value.trim();
+        const img = document.getElementById('cell-img').value.trim();
+        const audio = document.getElementById('cell-audio').value.trim();
+        const target = document.getElementById('cell-target-page').value;
+        appData.pages[currentPage][editingCellId] = { text, img, audio, target };
+        saveData(); closeModal(); renderGrid();
+    }
+
+    function closeModal() {
+        document.getElementById('edit-modal').style.display = 'none'; document.getElementById('modal-overlay').style.display = 'none'; editingCellId = null;
+    }
+
+    function addNewPage() {
+        const pageName = prompt("請輸入新的子頁面名稱 (例如: 飲食、身體狀態):");
+        if (pageName && pageName.trim() !== "" && !appData.pages[pageName]) {
+            appData.pages[pageName] = {}; appData.pageSettings[pageName] = { bgColor: "#fff0f5" }; 
+            saveData(); updatePageDropdown(); changePage(pageName);
+        } else if (appData.pages[pageName]) { alert("該頁面名稱已存在。"); }
+    }
+
+    function updatePageDropdown() {
+        const select = document.getElementById('page-select'); select.innerHTML = '';
+        Object.keys(appData.pages).forEach(p => {
+            const opt = document.createElement('option'); opt.value = p; opt.innerText = p;
+            if (p === currentPage) opt.selected = true; select.appendChild(opt);
+        });
+    }
+
+    function changePage(pageName) {
+        if (appData.pages[pageName]) {
+            currentPage = pageName; applyPageBgColor(); renderGrid();
+            if (currentMode === 'edit') document.getElementById('page-select').value = pageName;
+        }
+    }
+
+    function saveData() { localStorage.setItem('aacSystemData', JSON.stringify(appData)); }
+
+    function clearSystemData() {
+        if(confirm("警告：確定要清除所有網格設定與頁面資料嗎？此動作將無法復原。")) {
+            localStorage.removeItem('aacSystemData'); appData = DEFAULT_DATA; currentPage = "首頁"; clearMemory(); init();
+        }
+    }
+
+    init();
+</script>
+</body>
+</html>
